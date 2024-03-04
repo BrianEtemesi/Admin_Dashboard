@@ -1,15 +1,64 @@
-import { Box, Button, TextField } from "@mui/material";
+import { Box, Button, TextField, Select, MenuItem } from "@mui/material";
+import InputLabel from '@mui/material/InputLabel';
 import { Formik } from "formik";
 import * as yup from "yup";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Header from "../../components/Header";
+import { useMutation, gql } from '@apollo/client';
+
+
+const CREATE_USER = gql`
+  mutation CreateUser($newUser: UserInput!) {
+    createUser(newUser: $newUser) {
+      id
+      name
+      phoneNumber
+      email
+      address
+      roleId
+      dateCreated
+      dateEdited
+      status
+    }
+  }
+`;
+
 
 const Form = () => {
   const isNonMobile = useMediaQuery("(min-width:600px)");
 
-  const handleFormSubmit = (values) => {
-    console.log(values);
+  const [createUser] = useMutation(CREATE_USER);
+
+  const handleFormSubmit = async (values) => {
+    try {
+      // Execute the mutation with the form values
+      const roleMap = {
+        admin: 1,
+        manager: 2,
+        user: 3,
+      };
+
+      const { data } = await createUser({
+        variables: {
+          newUser: {
+            name: values.firstName + ' ' + values.lastName,
+            phoneNumber: values.contact,
+            email: values.email,
+            address: values.address1 + ' ' + values.address2,
+            roleId: roleMap[values.role.toLowerCase()], // Map role name to roleId
+            dateCreated: new Date().toISOString(),
+            dateEdited: null,
+            status: 'Inactive',
+          },
+        },
+      });
+
+      console.log('User created:', data.createUser);
+    } catch (error) {
+      console.error('Error creating user:', error);
+    }
   };
+
 
   return (
     <Box m="20px">
@@ -115,6 +164,23 @@ const Form = () => {
                 helperText={touched.address2 && errors.address2}
                 sx={{ gridColumn: "span 4" }}
               />
+              {/* Role Dropdown */}
+              <InputLabel htmlFor="role" sx={{ gridColumn: "span 4", marginLeft: "12px" }}>Role</InputLabel>
+              <Select
+                fullWidth
+                variant="filled"
+                label="Role"
+                onBlur={handleBlur}
+                onChange={handleChange}
+                value={values.role}
+                name="role"
+                error={!!touched.role && !!errors.role}
+                sx={{ gridColumn: "span 4" }}
+              >
+                <MenuItem value="admin">Admin</MenuItem>
+                <MenuItem value="manager">Manager</MenuItem>
+                <MenuItem value="user">User</MenuItem>
+              </Select>
             </Box>
             <Box display="flex" justifyContent="end" mt="20px">
               <Button type="submit" color="secondary" variant="contained">
@@ -141,6 +207,7 @@ const checkoutSchema = yup.object().shape({
     .required("required"),
   address1: yup.string().required("required"),
   address2: yup.string().required("required"),
+  role: yup.string().required("required"),
 });
 const initialValues = {
   firstName: "",
@@ -149,6 +216,7 @@ const initialValues = {
   contact: "",
   address1: "",
   address2: "",
+  role: "",
 };
 
 export default Form;
